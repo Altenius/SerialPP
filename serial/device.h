@@ -1,7 +1,7 @@
 #ifndef SERIAL_DEVICE_H
 #define SERIAL_DEVICE_H
 
-#ifdef __unix__
+#ifdef __linux__
 #include "nix/device.h"
 #elif WIN32
 #include "win32/device.h"

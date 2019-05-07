@@ -11,6 +11,7 @@
 
 #include <cstring>
 #include <cassert>
+#include <vector>
 
 namespace serial {
 
@@ -128,6 +129,9 @@ void Device::updateSettings() {
     // Set data bits
     termSettings.c_cflag |= detail::databits(settings_.dataBits);
 
+    // Set blocking
+    termSettings.c_cc[VMIN] = 1;
+
     // Disable hardware flow control
     termSettings.c_cflag &= ~CRTSCTS;
     // Enable receiver, ignore modem control lines
@@ -150,6 +154,36 @@ void Device::close() {
         ::close(fd_);
         fd_ = -1;
     }
+}
+
+void Device::write(const std::string &data) {
+    if (!isOpen()) {
+        throw std::runtime_error("attempt to write to closed socket");
+    }
+    int amount = ::write(fd_, data.c_str(), data.size());
+    if (amount == -1) {
+        throw std::runtime_error(std::string("error while writing to serial: ") + strerror(errno));
+    }
+    if (amount != data.size()) {
+        throw std::runtime_error("could not write full message to serial device. Expected to write " + std::to_string(data.size()) + ", wrote " + std::to_string(amount));
+    }
+}
+
+Device::~Device() {
+    close();
+}
+
+int Device::read(char *buffer, int amount) {
+    if (!isOpen()) {
+        throw std::runtime_error("attempt to read from closed socket");
+    }
+
+    int res = ::read(fd_, buffer, amount);
+    if (res == -1) {
+        throw std::runtime_error(std::string("error while reading from serial: ") + strerror(errno));
+    }
+
+    return res;
 }
 
 }
