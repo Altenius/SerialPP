@@ -28,25 +28,44 @@ std::string BufferedReader::read(int amount) {
     return res;
 }
 
-std::string BufferedReader::readLine() {
+std::string BufferedReader::readLine(const std::string &stop) {
     constexpr std::array<char, 2> terminators{'\r', '\n'};
 
-    auto pos = std::find_first_of(buffer_.end(), buffer_.end(), terminators.begin(), terminators.end());
-    while (pos == buffer_.end()) {
-        std::size_t size = buffer_.size();
-        readSome();
+    skipWhitespace();
+
+    auto pos = buffer_.end();
+    std::size_t lastPos{0};
+    while (true) {
         // Start searching from where we left off
-        pos = std::find_first_of(buffer_.begin() + size, buffer_.end(), terminators.begin(), terminators.end());
+        pos = std::find_first_of(buffer_.begin() + lastPos, buffer_.end(), terminators.begin(), terminators.end());
+        // Check for stop
+        if (!stop.empty() && buffer_.size() >= stop.size()) {
+            if (std::equal(stop.begin(), stop.end(), buffer_.begin())) {
+                // stop was found
+                pos = buffer_.begin() + stop.size();
+                break;
+            }
+        }
+
+        if (pos != buffer_.end()) {
+            break;
+        }
+
+        lastPos = buffer_.size();
+        readSome();
+        skipWhitespace();
     }
 
     std::string line(buffer_.begin(), pos);
     std::advance(pos, 1);
-    // Clear trailing whitespace
-    if (pos != buffer_.end() && (*pos== '\r' || *pos == '\n')) {
-        std::advance(pos, 1);
-    }
-    buffer_.erase(buffer_.begin(), pos + 1);
+    buffer_.erase(buffer_.begin(), pos);
 
     return line;
+}
+
+void BufferedReader::skipWhitespace() {
+    buffer_.erase(buffer_.begin(), std::find_if_not(buffer_.begin(), buffer_.end(), [](char c) {
+        return std::isspace(static_cast<unsigned char>(c));
+    }));
 }
 }
