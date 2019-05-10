@@ -1,16 +1,15 @@
-#include <stdexcept>
 #include "device.h"
+#include <stdexcept>
 
-#include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include <asm/termios.h>
 #include <errno.h>
-#include <asm/termbits.h>
-#include <asm/ioctls.h>
-#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <unistd.h>
 
-#include <cstring>
 #include <cassert>
+#include <cstring>
+#include <stropts.h>
 #include <vector>
 
 namespace serial {
@@ -44,43 +43,44 @@ constexpr speed_t toTermBaud(Baudrate baudrate) {
 
 constexpr int databits(DataBits bits) {
     switch (bits) {
-        case DataBits::DB5:
-            return CS5;
-        case DataBits::DB6:
-            return CS6;
-        case DataBits::DB7:
-            return CS7;
-        case DataBits::DB8:
-            return CS8;
+    case DataBits::DB5:
+        return CS5;
+    case DataBits::DB6:
+        return CS6;
+    case DataBits::DB7:
+        return CS7;
+    case DataBits::DB8:
+        return CS8;
     }
     assert("Invalid databits");
     return 0;
 }
 
-}
+} // namespace detail
 
 void Device::open() {
     if (fd_ != -1) {
         throw std::runtime_error("attempt to reopen serial port");
     }
 
-    int flags = O_NOCTTY | O_NDELAY;
-    switch(settings_.mode) {
-        case Mode::Read:
-            flags |= O_RDONLY;
-            break;
-        case Mode::Write:
-            flags |= O_WRONLY;
-            break;
-        case Mode::ReadWrite:
-            flags |= O_RDWR;
-            break;
+    int flags = O_NOCTTY;
+    switch (settings_.mode) {
+    case Mode::Read:
+        flags |= O_RDONLY;
+        break;
+    case Mode::Write:
+        flags |= O_WRONLY;
+        break;
+    case Mode::ReadWrite:
+        flags |= O_RDWR;
+        break;
     }
 
     fd_ = ::open(port_.c_str(), flags);
 
     if (fd_ == -1) {
-        throw std::runtime_error(std::string("error opening serial port: ") + strerror(errno));
+        throw std::runtime_error(std::string("error opening serial port: ") +
+                                 strerror(errno));
     }
 
     updateSettings();
@@ -92,36 +92,31 @@ void Device::updateSettings() {
         return;
     }
 
-    termios2 termSettings;
+    termios2 termSettings{};
     ioctl(fd_, TCGETS2, &termSettings);
-
-    // Set baudrate
-    termSettings.c_cflag |= BOTHER;
-    termSettings.c_ispeed = settings_.baudrate;
-    termSettings.c_ospeed = settings_.baudrate;
 
     // Set parity
     switch (settings_.parity) {
-        case Parity::None:
-            termSettings.c_cflag &= ~PARENB;
-            break;
-        case Parity::Odd:
-            termSettings.c_cflag |= PARENB | PARODD;
-            break;
-        case Parity::Even:
-            termSettings.c_cflag |= PARENB;
-            termSettings.c_cflag &= ~PARENB;
-            break;
+    case Parity::None:
+        termSettings.c_cflag &= ~PARENB;
+        break;
+    case Parity::Odd:
+        termSettings.c_cflag |= PARENB | PARODD;
+        break;
+    case Parity::Even:
+        termSettings.c_cflag |= PARENB;
+        termSettings.c_cflag &= ~PARODD;
+        break;
     }
 
     // Set stop bits
     switch (settings_.stopBits) {
-        case StopBits::One:
-            termSettings.c_cflag &= ~CSTOPB;
-            break;
-        case StopBits::Two:
-            termSettings.c_cflag |= CSTOPB;
-            break;
+    case StopBits::One:
+        termSettings.c_cflag &= ~CSTOPB;
+        break;
+    case StopBits::Two:
+        termSettings.c_cflag |= CSTOPB;
+        break;
     }
 
     // Clear character size mask
@@ -129,8 +124,14 @@ void Device::updateSettings() {
     // Set data bits
     termSettings.c_cflag |= detail::databits(settings_.dataBits);
 
+    termSettings.c_iflag &= ~IGNBRK;
+    // termSettings.c_lflag = 0;
+    // termSettings.c_oflag = 0;
+    termSettings.c_oflag &= ~OPOST; /*No Output Processing*/
+
     // Set blocking
-    termSettings.c_cc[VMIN] = 1;
+    termSettings.c_cc[VMIN] = 0;
+    termSettings.c_cc[VTIME] = 5; // 0.5s timeout
 
     // Disable hardware flow control
     termSettings.c_cflag &= ~CRTSCTS;
@@ -138,15 +139,22 @@ void Device::updateSettings() {
     termSettings.c_cflag |= CREAD | CLOCAL;
 
     // Disable software flow control
-    termSettings.c_cflag &= ~(IXON | IXOFF | IXANY);
+    termSettings.c_iflag &= ~(IXON | IXOFF | IXANY);
     // Non canonical mode
-    termSettings.c_cflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+    termSettings.c_iflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+
+    // Set baudrate
+    termSettings.c_cflag &= ~CBAUD;
+    termSettings.c_cflag |= BOTHER;
+    termSettings.c_ispeed = settings_.baudrate;
+    termSettings.c_ospeed = settings_.baudrate;
 
     // Set attributes
     if ((ioctl(fd_, TCSETS2, &termSettings)) != 0) {
-        throw std::runtime_error(std::string("error settings serial attributes: ") + strerror(errno));
+        throw std::runtime_error(
+            std::string("error settings serial attributes: ") +
+            strerror(errno));
     }
-
 }
 
 void Device::close() {
@@ -160,18 +168,21 @@ void Device::write(const std::string &data) {
     if (!isOpen()) {
         throw std::runtime_error("attempt to write to closed socket");
     }
+
     int amount = ::write(fd_, data.c_str(), data.size());
     if (amount == -1) {
-        throw std::runtime_error(std::string("error while writing to serial: ") + strerror(errno));
+        throw std::runtime_error(
+            std::string("error while writing to serial: ") + strerror(errno));
     }
     if (amount != data.size()) {
-        throw std::runtime_error("could not write full message to serial device. Expected to write " + std::to_string(data.size()) + ", wrote " + std::to_string(amount));
+        throw std::runtime_error("could not write full message to serial "
+                                 "device. Expected to write " +
+                                 std::to_string(data.size()) + ", wrote " +
+                                 std::to_string(amount));
     }
 }
 
-Device::~Device() {
-    close();
-}
+Device::~Device() { close(); }
 
 int Device::read(char *buffer, int amount) {
     if (!isOpen()) {
@@ -180,7 +191,8 @@ int Device::read(char *buffer, int amount) {
 
     int res = ::read(fd_, buffer, amount);
     if (res == -1) {
-        throw std::runtime_error(std::string("error while reading from serial: ") + strerror(errno));
+        throw std::runtime_error(
+            std::string("error while reading from serial: ") + strerror(errno));
     }
 
     return res;

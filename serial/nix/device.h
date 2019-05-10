@@ -10,7 +10,8 @@
 namespace serial {
 class Device {
 public:
-    explicit Device(std::string port = "", Settings settings = Settings{}) : port_(std::move(port)), settings_{settings} {}
+    explicit Device(std::string port = "", Settings settings = Settings{})
+        : port_(std::move(port)), settings_{settings} {}
 
     // Tries to open socket and apply settings
     void open();
@@ -22,13 +23,15 @@ public:
     inline void setPort(const std::string &port) noexcept { port_ = port; }
 
     // Sets settings. Applies on next open() or with updateSettings().
-    inline void setSettings(Settings settings) noexcept { settings_ = settings; }
+    inline void setSettings(Settings settings) noexcept {
+        settings_ = settings;
+    }
 
     // Returns current settings
     inline Settings settings() const noexcept { return settings_; }
 
-    // Returns true if the socket has not been closed. May return true if the connection
-    // was closed remotely.
+    // Returns true if the socket has not been closed. May return true if the
+    // connection was closed remotely.
     inline bool isOpen() const noexcept { return fd_ != -1; }
 
     // If the socket is open, applies current settings to it.
@@ -47,7 +50,6 @@ private:
     std::string port_;
     Settings settings_;
 };
-}
+} // namespace serial
 
-
-#endif //SERIAL_NIX_DEVICE_H
+#endif // SERIAL_NIX_DEVICE_H

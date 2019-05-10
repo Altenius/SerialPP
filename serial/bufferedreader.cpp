@@ -57,7 +57,7 @@ std::string BufferedReader::readLine(const std::string &stop) {
     }
 
     std::string line(buffer_.begin(), pos);
-    std::advance(pos, 1);
+    //std::advance(pos, 1);
     buffer_.erase(buffer_.begin(), pos);
 
     return line;
