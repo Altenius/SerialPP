@@ -1,5 +1,5 @@
-#ifndef SERIAL_NIX_DEVICE_H
-#define SERIAL_NIX_DEVICE_H
+#ifndef SERIAL_WINDOWS_DEVICE_H
+#define SERIAL_WINDOWS_DEVICE_H
 
 #include <string>
 #include <vector>
@@ -55,4 +55,4 @@ std::vector<std::string> enumeratePorts();
 
 } // namespace serial
 
-#endif // SERIAL_NIX_DEVICE_H
+#endif // SERIAL_WINDOWS_DEVICE_H

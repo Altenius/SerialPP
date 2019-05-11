@@ -4,7 +4,7 @@
 #ifdef __linux__
 #include "nix/device.h"
 #elif WIN32
-#include "win32/device.h"
+#include "windows/device.h"
 #endif
 
 #endif //SERIAL_DEVICE_H

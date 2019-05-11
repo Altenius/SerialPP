@@ -11,6 +11,9 @@
 #include <cstring>
 #include <stropts.h>
 #include <vector>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 namespace serial {
 
@@ -196,6 +199,29 @@ int Device::read(char *buffer, int amount) {
     }
 
     return res;
+}
+
+bool startsWith(const std::string &s, const std::string &start) {
+    return s.size() >= start.size() && std::equal(s.begin(), s.begin() + start.size(), start.begin(), start.end());
+}
+
+std::vector<std::string> enumeratePorts() {
+    std::vector<std::string> ports;
+
+    for (auto &p : fs::directory_iterator("/sys/class/tty/")) {
+        std::string filename = p.path().filename();
+        if (startsWith(filename, "ttyS") || startsWith(filename, "ttyACM") || startsWith(filename, "ttyUSB")) {
+            fs::path subsystemPath = fs::canonical(p.path() / "device" / "subsystem");
+            if (subsystemPath.filename() != "platform") {
+                fs::path devPath = fs::path("/dev/") / filename;
+                if (fs::exists(devPath)) {
+                    ports.emplace_back(devPath.string());
+                }
+            }
+        }
+    }
+
+    return ports;
 }
 
 }

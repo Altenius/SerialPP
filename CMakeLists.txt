@@ -16,8 +16,14 @@ if(UNIX AND NOT APPLE)
             serial/nix/device.h)
 endif()
 
+if (WIN32)
+    set(SOURCES ${SOURCES}
+            serial/windows/device.cpp
+            serial/windows/device.h)
+endif()
+
 
 add_library(Serial ${SOURCES})
 
-set_property(TARGET Serial PROPERTY CXX_STANDARD 14)
+set_property(TARGET Serial PROPERTY CXX_STANDARD 17)
 target_include_directories(Serial INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
