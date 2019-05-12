@@ -2,6 +2,9 @@
 
 #include <Windows.h>
 
+#include <cassert>
+#include <stdexcept>
+
 namespace serial {
 
 namespace detail {
@@ -22,53 +25,19 @@ constexpr int bytesize(DataBits bits) {
 }
 
 void Device::open() {
-    std::string realPort = std::string("\\\\.\\") + port_;
+    std::string realPort = std::string(R"(\\.\)") + port_;
 
     handle_ = CreateFile(realPort.c_str(), GENERIC_READ | GENERIC_WRITE, 0,
-                         no Sharing nullptr, // No Security
+                         nullptr, // No Security
                          OPEN_EXISTING,
                          0, // Non Overlapped I/O
-                         NULL);
+                         nullptr);
 
     if (handle_ == INVALID_HANDLE_VALUE) {
         throw std::runtime_error("failed to open COM port");
     }
 
-    // Control settings
-    DCB controlSetting{};
-    controlSetting.DCBlength = sizeof(DCB);
-
-    if (GetCommState(handle_, &controlSetting) == FALSE) {
-        throw std::runtime_error("failed to get comm state for port");
-    }
-
-    controlSetting.BaudRate = settings_.baudrate;
-    controlSetting.ByteSize = detail::bytesize(settings_.dataBits);
-
-    switch (settings_.stopBits) {
-    case StopBits::Two:
-        controlSetting.StopBits = TWOSTOPBITS;
-        break;
-    case StopBits::One:
-        controlSetting.StopBits = ONESTOPBIT;
-        break;
-    }
-
-    switch (settings_.parity) {
-    case Parity::Odd:
-        controlSetting.Parity = ODDPARITY;
-        break;
-    case Parity::Even:
-        controlSetting.Parity = EVENPARITY;
-        break;
-    case Parity::None:
-        controlSetting.Parity = NOPARITY;
-        break;
-    }
-
-    if (SetCommState(handle_, &controlSetting) == FALSE) {
-        throw std::runtime_error("failed to set comm state");
-    }
+    updateSettings();
 
     // Set timeouts
     COMMTIMEOUTS timeouts{};
@@ -86,11 +55,11 @@ void Device::open() {
 void Device::close() {
     if (isOpen()) {
         CloseHandle(handle_);
-        handle_ = -1;
+        handle_ = nullptr;
     }
 }
 
-~Device::~Device() {
+Device::~Device() {
     close();
 }
 
@@ -112,11 +81,58 @@ void Device::write(const std::string &data) {
 }
 
 int Device::read(char *buffer, int amount) {
-    int amountRead = 0;
+    DWORD amountRead = 0;
     if (ReadFile(handle_, buffer, amount, &amountRead, nullptr) == FALSE) {
         throw std::runtime_error("error while reading from comm device");
     }
     return amountRead;
+}
+
+void Device::updateSettings() {
+    if (!isOpen()) {
+        return;
+    }
+    // Control settings
+    DCB controlSetting{};
+    controlSetting.DCBlength = sizeof(DCB);
+
+    if (GetCommState(handle_, &controlSetting) == FALSE) {
+        throw std::runtime_error("failed to get comm state for port");
+    }
+
+    controlSetting.BaudRate = settings_.baudrate;
+    controlSetting.ByteSize = detail::bytesize(settings_.dataBits);
+
+    switch (settings_.stopBits) {
+        case StopBits::Two:
+            controlSetting.StopBits = TWOSTOPBITS;
+            break;
+        case StopBits::One:
+            controlSetting.StopBits = ONESTOPBIT;
+            break;
+    }
+
+    switch (settings_.parity) {
+        case Parity::Odd:
+            controlSetting.Parity = ODDPARITY;
+            break;
+        case Parity::Even:
+            controlSetting.Parity = EVENPARITY;
+            break;
+        case Parity::None:
+            controlSetting.Parity = NOPARITY;
+            break;
+    }
+
+    if (SetCommState(handle_, &controlSetting) == FALSE) {
+        throw std::runtime_error("failed to set comm state");
+    }
+}
+
+std::vector<std::string> enumeratePorts() {
+    std::vector<std::string> ports;
+    // Stub
+    return ports;
 }
 
 }
