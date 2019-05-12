@@ -144,7 +144,7 @@ void Device::updateSettings() {
     // Disable software flow control
     termSettings.c_iflag &= ~(IXON | IXOFF | IXANY);
     // Non canonical mode
-    termSettings.c_iflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+    termSettings.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
 
     // Set baudrate
     termSettings.c_cflag &= ~CBAUD;
