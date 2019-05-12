@@ -32,7 +32,7 @@ public:
 
     // Returns true if the socket has not been closed. May return true if the
     // connection was closed remotely.
-    inline bool isOpen() const noexcept { return fd_ != -1; }
+    inline bool isOpen() const noexcept { return handle_ != -1; }
 
     // If the socket is open, applies current settings to it.
     void updateSettings();
@@ -46,7 +46,7 @@ public:
     ~Device();
 
 private:
-    int fd_{-1};
+    int handle_{-1};
     std::string port_;
     Settings settings_;
 };
