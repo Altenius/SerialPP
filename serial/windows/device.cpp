@@ -131,7 +131,50 @@ void Device::updateSettings() {
 
 std::vector<std::string> enumeratePorts() {
     std::vector<std::string> ports;
-    // Stub
+
+    LSTATUS res;
+
+    HKEY hKeySerial;
+
+    if ((res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, "HARDWARE\\DEVICEMAP\\SERIALCOMM", 0, KEY_QUERY_VALUE, &hKeySerial)) != ERROR_SUCCESS) {
+        if (res == ERROR_FILE_NOT_FOUND) {
+            // File not found is not an error; no entries.
+            return ports;
+        }
+        throw std::runtime_error(R"(failed to open HKEY_LOCAL_MACHINE\HARDWARE\DEVICEMAP\SERIALCOMM for reading)");
+    }
+
+    char keyValue[255];
+    DWORD keySize;
+    DWORD dwIndex = 0;
+    do {
+        keySize = sizeof(keyValue);
+        res = RegEnumValue(hKeySerial, dwIndex++, keyValue, &keySize,
+                           nullptr, nullptr, nullptr, nullptr);
+        if (res == ERROR_NO_MORE_ITEMS) {
+            break;
+        }
+        if (res != ERROR_SUCCESS) {
+            RegCloseKey(hKeySerial);
+            throw std::runtime_error(
+                    "Error while enumerating serial devices");
+        }
+
+        std::string name(keyValue, keySize);
+
+        keySize = sizeof(keyValue);
+        if ((res = RegQueryValueExA(hKeySerial, name.c_str(), nullptr, nullptr, reinterpret_cast<BYTE*>(keyValue), &keySize)) !=
+            ERROR_SUCCESS) {
+            RegCloseKey(hKeySerial);
+            throw std::runtime_error(
+                    "Error while opening serial device entry");
+        }
+
+        ports.emplace_back(std::string(keyValue, keySize));
+    } while (res == ERROR_SUCCESS);
+
+    RegCloseKey(hKeySerial);
+
     return ports;
 }
 
