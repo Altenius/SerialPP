@@ -53,7 +53,7 @@ enum class DataBits {
 
 struct Settings {
     Parity parity{Parity::None};
-    uint32_t baudrate{9600};
+    uint32_t baudrate{9600}; // If baudrate is 0 then the baudrate of the device will not be changed
     StopBits stopBits{StopBits::One};
     Mode mode{Mode::ReadWrite};
     DataBits dataBits{DataBits::DB8};

@@ -147,10 +147,12 @@ void Device::updateSettings() {
     termSettings.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
 
     // Set baudrate
-    termSettings.c_cflag &= ~CBAUD;
-    termSettings.c_cflag |= BOTHER;
-    termSettings.c_ispeed = settings_.baudrate;
-    termSettings.c_ospeed = settings_.baudrate;
+    if (settings_.baudrate != 0) {
+        termSettings.c_cflag &= ~CBAUD;
+        termSettings.c_cflag |= BOTHER;
+        termSettings.c_ispeed = settings_.baudrate;
+        termSettings.c_ospeed = settings_.baudrate;
+    }
 
     // Set attributes
     if ((ioctl(fd_, TCSETS2, &termSettings)) != 0) {

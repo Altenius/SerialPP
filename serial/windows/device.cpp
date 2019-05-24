@@ -100,7 +100,9 @@ void Device::updateSettings() {
         throw std::runtime_error("failed to get comm state for port");
     }
 
-    controlSetting.BaudRate = settings_.baudrate;
+    if (settings_.baudrate != 0) {
+        controlSetting.BaudRate = settings_.baudrate;
+    }
     controlSetting.ByteSize = detail::bytesize(settings_.dataBits);
 
     switch (settings_.stopBits) {
